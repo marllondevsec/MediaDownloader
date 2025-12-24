@@ -1,60 +1,64 @@
+<p align="center">
+  <img src="foto.png" alt="StreamHarvester banner" width="800">
+</p>
+
 # StreamHarvester
 
 ## Quick Summary
 
-**StreamHarvester** is a single-file **C++17 CLI tool** to manage, download, and optionally convert media (video/audio) using **yt-dlp** and **ffmpeg**.
+**StreamHarvester** is a single-file **C++17 CLI tool** for managing, downloading, and optionally converting media (video/audio) using **yt-dlp** and **ffmpeg**.
 
-It organizes downloads into **named URL lists**, automatically installs core tools into `internals/` (when possible), shows **live download progress** parsed from yt-dlp, and **removes items from lists once successfully downloaded**.
+It organizes downloads into **named URL lists**, automatically bootstraps required tools into the `internals/` directory (best-effort), displays **live download progress**, and removes entries from lists after successful downloads.
 
-Primary goals:
-- Simple list-based workflows  
-- Repeatable downloads  
-- Easy conversion (mp4 / mp3) with minimal setup  
+### Primary Goals
+
+* Simple list-based workflows
+* Repeatable, resumable downloads
+* Minimal setup with optional media conversion (MP4 / MP3)
 
 ---
 
 ## Key Features
 
-- **Named URL lists**  
-  Stored in `internals/lists/<listname>.txt` — manage multiple lists and reuse them.
+* **Named URL lists**
+  Lists are stored as plain text files in `internals/lists/<listname>.txt`.
 
-- **Automatic cleanup**  
-  URLs are removed from the list when a download completes successfully.
+* **Automatic cleanup**
+  URLs are removed from the list once the download completes successfully.
 
-- **Automatic tool bootstrap (best-effort)**  
-  Downloads `yt-dlp` and attempts to install `ffmpeg` into `internals/`.
+* **Automatic tool bootstrap (best-effort)**
+  Attempts to download `yt-dlp` and install `ffmpeg` into the `internals/` directory.
 
-- **Persistent configuration**  
-  Stored at `internals/config.cfg` (mode, quality, target format).
+* **Persistent configuration**
+  User preferences are stored in `internals/config.cfg`.
 
-- **Progress UI**  
-  Parses yt-dlp output to show percentage, ETA, and a running spinner.
+* **Progress UI**
+  Parses yt-dlp output to display percentage, ETA, and an animated spinner.
 
-- **Cross-platform (Linux, Windows)**  
-  ANSI-aware banner and screen clearing with safe fallbacks.
+* **Cross-platform support**
+  Works on Linux and Windows with ANSI-aware terminal output.
 
-- **Conversion support**  
-  - `--recode-video mp4`
-  - `-x --audio-format mp3`  
-  via yt-dlp + ffmpeg.
+* **Media conversion support**
+
+  * Video recoding: `--recode-video mp4`
+  * Audio extraction: `-x --audio-format mp3`
 
 ---
 
 ## Project Layout (generated at runtime)
 
-./StreamHarvester # compiled binary (suggested name)
-./MediaDownloader0.3.cpp # source (original file)
-downloads/ # final downloaded & converted media
+```text
+./StreamHarvester                # compiled binary
+./StreamHarvester.cpp            # source file
+downloads/                       # final downloaded & converted media
 internals/
-yt-dlp # yt-dlp executable (or yt-dlp.exe on Windows)
-ffmpeg # ffmpeg executable (or ffmpeg.exe on Windows)
-config.cfg # persistent settings
-lists/
-movies.txt # example list file with URLs
-podcasts.txt
-
-yaml
-Copy code
+  yt-dlp                         # yt-dlp executable
+  ffmpeg                         # ffmpeg executable
+  config.cfg                     # persistent configuration
+  lists/
+    movies.txt
+    podcasts.txt
+```
 
 ---
 
@@ -62,214 +66,152 @@ Copy code
 
 ### Requirements
 
-- C++17-capable compiler  
-  (`g++`, `clang++`, or MinGW on Windows)
-- `curl`, `tar` (Linux) recommended for automatic installers
-- On Windows, **PowerShell** available for automatic ffmpeg installer
+* C++17-compatible compiler (`g++`, `clang++`, or MinGW)
+* `curl` and `tar` (recommended on Linux)
+* PowerShell available on Windows (for ffmpeg installation)
 
 ### Build
 
 #### Linux / macOS / WSL
+
 ```bash
-g++ -std=c++17 -O2 -Wall MediaDownloader0.3.cpp -o StreamHarvester
-Windows (MSYS2 / MinGW)
-bash
-Copy code
-g++ -std=c++17 -O2 -Wall MediaDownloader0.3.cpp -o StreamHarvester.exe
-First Run / Startup Behavior
+g++ -std=c++17 -O2 -Wall StreamHarvester.cpp -o StreamHarvester
+```
+
+#### Windows (MSYS2 / MinGW)
+
+```bash
+g++ -std=c++17 -O2 -Wall StreamHarvester.cpp -o StreamHarvester.exe
+```
+
+---
+
+## First Run / Startup Behavior
+
 On first execution, StreamHarvester will:
 
-Try to enable ANSI output (for colored banner)
+* Enable ANSI terminal output (when supported)
+* Create required directories:
 
-Create:
+  * `internals/`
+  * `internals/lists/`
+  * `downloads/`
+* Attempt to download `yt-dlp`
+* Attempt a best-effort installation of `ffmpeg`
+* Display an ASCII banner and launch the interactive menu
 
-internals/
+If automatic installation fails, use **Menu → Ensure tools** or install the binaries manually.
 
-internals/lists/
+---
 
-downloads/
+## Usage (Interactive Mode)
 
-Attempt to download yt-dlp into internals/
-
-Attempt a best-effort fetch/extract of a static ffmpeg
-
-Show an ASCII banner and enter the interactive menu
-
-If automatic installs fail, use Menu option 5 — Ensure tools or install binaries manually into internals/.
-
-Usage (Interactive)
 Run:
 
-bash
-Copy code
+```bash
 ./StreamHarvester
-Main Menu Options
-Manage lists
-Create, inspect, or delete named lists.
-List names are sanitized into safe filenames.
+```
 
-Add URL to a list
-Choose a list and append URL(s).
+### Main Menu Options
 
-Show lists and counts
-Overview of lists and number of URLs.
+1. **Manage lists**
+   Create, inspect, or delete named URL lists.
 
-Settings
+2. **Add URL to a list**
+   Select a list and append one or more URLs.
 
-Mode: video or audio
+3. **Show lists and counts**
+   View all lists and the number of queued URLs.
 
-Quality: best, 720, 1080, etc.
+4. **Settings**
+   Configure:
 
-Target format: original, mp4, mp3
-Settings persist to internals/config.cfg.
+   * Mode: `video` | `audio`
+   * Quality: `best`, `720`, `1080`, or custom
+   * Target format: `original` | `mp4` | `mp3`
 
-Ensure tools
-Retry download/install of yt-dlp and ffmpeg.
+   Settings are stored in `internals/config.cfg`.
 
-Start downloads for a list
-Downloads sequentially and removes successful URLs automatically.
+5. **Ensure tools**
+   Retry installation of `yt-dlp` and `ffmpeg`.
 
-Example Workflow
-Start the program:
+6. **Start downloads for a list**
+   Download items sequentially with automatic list cleanup.
 
-bash
-Copy code
-./StreamHarvester
-Create a list:
+---
 
-css
-Copy code
+## Example Workflow
+
+```text
 Main menu → 1 → n → my_series
-Add URLs:
+Main menu → 2 → select my_series → add URLs
+Main menu → 4 → configure mode / quality / format
+Main menu → 5 → ensure tools (optional)
+Main menu → 6 → start downloads
+```
 
-css
-Copy code
-Main menu → 2 → select my_series → paste URL
-Configure:
+After a successful download, entries are removed from:
 
-css
-Copy code
-Main menu → 4 → choose video/audio, quality, format
-Ensure tools (if needed):
-
-css
-Copy code
-Main menu → 5
-Start downloads:
-
-css
-Copy code
-Main menu → 6 → pick my_series
-Successful entries are automatically removed from:
-
-bash
-Copy code
+```text
 internals/lists/my_series.txt
-Configuration File
-internals/config.cfg
+```
 
-ini
-Copy code
+---
+
+## Configuration File
+
+**Location:** `internals/config.cfg`
+
+```ini
 mode=video
 quality=best
 format=original
-Options
-mode: video | audio
+```
 
-quality: best | numeric (720, 1080) | custom
+---
 
-format: original | mp4 | mp3
+## Behavior Notes
 
-Behavior Details & Notes
-Merging tracks (video + audio)
-Requires ffmpeg. Without it, yt-dlp may download separate tracks.
+* Merging separate audio/video streams requires `ffmpeg`
+* MP4 conversion uses `--recode-video mp4`
+* MP3 extraction uses `-x --audio-format mp3`
+* Progress display depends on yt-dlp output format and is best-effort
 
-Target format mp4
-Uses --recode-video mp4.
-If ffmpeg is missing, falls back to --merge-output-format mp4.
+---
 
-Target format mp3
-Uses -x --audio-format mp3. Some conversions require ffmpeg.
+## Troubleshooting
 
-Progress parsing
-Extracts [download] percentage and ETA from yt-dlp output.
-If parsing fails, download still continues normally.
+### ffmpeg not found
 
-Automatic removal
-URLs are removed only when yt-dlp exits with code 0.
-
-Troubleshooting
-ffmpeg missing / merge failing
-Run Menu → 5 (Ensure tools)
-
-Or install manually:
-
-Linux
-bash
-Copy code
+```bash
 sudo apt install ffmpeg
-Windows
-Download a build
+```
 
-Place ffmpeg.exe in internals/ or add to PATH
+Or place `ffmpeg` / `ffmpeg.exe` manually inside `internals/`.
 
-yt-dlp missing
-Linux:
+### yt-dlp not found
 
-bash
-Copy code
+```bash
 curl -L -o internals/yt-dlp \
-"https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 chmod +x internals/yt-dlp
-Windows:
+```
 
-Download yt-dlp.exe
+---
 
-Place it in internals/
+## Legal / Responsible Use
 
-Progress / ETA not shown
-Some sites output different formats.
-Download usually still works — progress UI is best-effort.
+Use StreamHarvester only for media you are legally allowed to download.
+Always respect copyright laws and platform Terms of Service.
 
-Legal / Responsible Use
-Use StreamHarvester only for media you have rights to download or that providers explicitly permit.
-Respect copyright laws and platform Terms of Service (e.g., YouTube TOS).
+StreamHarvester does **not** bypass DRM or platform protections.
 
-StreamHarvester does not bypass DRM.
+---
 
-Extensibility & Roadmap
-Parallel / multi-threaded downloads
+## Roadmap
 
-Non-interactive batch mode:
-
-css
-Copy code
---list mylist --start
-Cookies / authentication integration
-
-Optional logs (internals/logs/)
-
-Improved TUI (ncurses or similar)
-
-Contributing
-Fork the repository
-
-Make focused changes
-
-Open a PR with description and tests if possible
-
-Document any new dependency or installer behavior changes.
-
-License
-MIT (suggested)
-Add a LICENSE file if you adopt the repository.
-
-FAQ
-Q: Can I run multiple lists concurrently?
-A: Not yet. Downloads are sequential per list.
-
-Q: Can I run it via CLI flags (batch mode)?
-A: Not in this release — interactive menu only.
-
-Q: Where are downloaded files saved?
-A: ./downloads/
+* Parallel downloads
+* Non-interactive batch mode
+* Cookies and authenticated sessions
+* Logging and verbose/debug mode
+* Improved TUI (ncurses-style interface)
