@@ -1,5 +1,7 @@
-// MediaDownloader0.3.cpp by Marllondevsec.
+// MediaDownloader0.3_fixed.cpp by Marllondevsec.
 // Previous features kept. Added cross-platform clear screen + ASCII banner with startup animation.
+// Modificação: show_main_menu não limpa a tela a cada loop; adicionada opção 'r' para refresh.
+// Modificação adicional: clear + banner antes de exibir resultados das opções 3 e 5, e pausa para voltar.
 
 #include <iostream>
 #include <fstream>
@@ -87,7 +89,6 @@ static const std::vector<std::string> BANNER_LINES = {
 "(_ _|_ __ _  _ __    |_| _  __    _  _ _|_ _  __",
 "__) |_ | (/_(_||||   | |(_| | \\_/(/__>  |_(/_ | "
 };
-
 
 static void print_banner(bool use_color = true) {
     if (g_ansi_enabled && use_color) {
@@ -207,7 +208,7 @@ public:
         std::string cmd = "curl -L -s -o \"" + tmp + "\" \"" + url + "\" && mkdir -p \"" + work + "\" && tar -xJf \"" + tmp + "\" -C \"" + work + "\" --strip-components=1 2>/dev/null";
         int r = exec_system(cmd);
         if (r != 0) {
-            try{ fs::remove(tmp); fs::remove_all(work);}catch(...){} 
+            try{ fs::remove(tmp); fs::remove_all(work);}catch(...){}
             std::string alt = "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz";
             cmd = "curl -L -s -o \"" + tmp + "\" \"" + alt + "\" && mkdir -p \"" + work + "\" && tar -xJf \"" + tmp + "\" -C \"" + work + "\" --strip-components=1 2>/dev/null";
             r = exec_system(cmd);
@@ -383,15 +384,17 @@ static void download_and_cleanup(const std::string &listname, Config &cfg, ToolI
 }
 
 // ---------- Menus (numeric) ----------
+// Modified: do NOT clear the screen every time; show compact header.
+// Use 'r' to force refresh (clear + redraw banner).
 static void show_main_menu() {
-    clear_screen();
-    print_banner(true);
-    std::cout << "\n1) Manage lists (create / choose / delete)\n";
+    std::cout << "\n=== MediaDownloader ===\n"; // compact header so previous output remains visible
+    std::cout << "1) Manage lists (create / choose / delete)\n";
     std::cout << "2) Add URL to a list\n";
     std::cout << "3) Show lists and counts\n";
     std::cout << "4) Settings (mode / quality / format)\n";
     std::cout << "5) Ensure tools (yt-dlp / ffmpeg)\n";
     std::cout << "6) Start downloads for a list\n";
+    std::cout << "r) Refresh screen (clear & redraw banner)\n";
     std::cout << "0) Exit\n";
     std::cout << "> ";
 }
@@ -452,12 +455,36 @@ static void add_url_flow() {
     if (sel==0) {
         std::cout<<"New list name: "; std::string name; std::getline(std::cin,name); name=trim(name);
         if (name.empty()) { std::cout<<"Canceled\n"; return; }
-        targetList = sanitize_name(name); save_list(targetList, {}); std::cout<<"Created '"<<targetList<<"'\n";
-    } else if (sel>=1 && sel <= (int)names.size()) targetList = names[sel-1];
-    else { std::cout<<"Invalid\n"; return; }
-    std::cout<<"Enter URL: "; std::string url; std::getline(std::cin,url); url=trim(url);
-    if (url.empty()) { std::cout<<"Canceled\n"; return; }
-    if (append_to_list(targetList, url)) std::cout << "[OK]\n"; else std::cout << "[ERR]\n";
+        targetList = sanitize_name(name);
+        if (!fs::exists(list_path(targetList))) {
+            save_list(targetList, {});
+            std::cout<<"Created '"<<targetList<<"'\n";
+        } else {
+            std::cout<<"List '"<<targetList<<"' already exists, using it.\n";
+        }
+    } else if (sel>=1 && sel <= (int)names.size()) {
+        targetList = names[sel-1];
+    } else {
+        std::cout<<"Invalid\n"; return;
+    }
+
+    std::cout << "\nAdding URLs to list '" << targetList << "'.\n";
+    std::cout << "Enter one URL per line. Press Enter on an empty line to finish and return to the menu.\n\n";
+
+    while (true) {
+        std::cout << "URL: ";
+        std::string url; std::getline(std::cin, url);
+        url = trim(url);
+        if (url.empty()) {
+            std::cout << "[OK] Finished adding URLs to '" << targetList << "'.\n";
+            break;
+        }
+        if (append_to_list(targetList, url)) {
+            std::cout << "[ADDED] " << url << "\n";
+        } else {
+            std::cout << "[ERR] Failed to add URL to list\n";
+        }
+    }
 }
 
 static void show_lists_and_counts() {
@@ -492,13 +519,27 @@ int main() {
         choice = trim(choice);
         if (choice.empty()) continue;
         if (choice == "0") break;
+        if (choice == "r" || choice == "R") {
+            clear_screen();
+            print_banner(true);
+            continue;
+        }
         if (choice == "1") { manage_lists_menu(); continue; }
         if (choice == "2") { add_url_flow(); continue; }
-        if (choice == "3") { show_lists_and_counts(); continue; }
+
+        // OPTION 3 - show lists & counts
+        if (choice == "3") {
+            clear_screen();
+            print_banner(true);
+            show_lists_and_counts();
+            std::cout << "\nPress Enter to return to menu..."; std::string _tmp; std::getline(std::cin, _tmp);
+            continue;
+        }
+
         if (choice == "4") {
-            // numeric settings menu
-            clear_screen(); print_banner(true);
-            std::cout << "\nMode (1=video, 2=audio). Current: " << cfg.mode << "\nChoice: ";
+            // numeric settings menu - sem clear_screen() para não apagar saída anterior
+            std::cout << "\n--- Settings ---\n";
+            std::cout << "Mode (1=video, 2=audio). Current: " << cfg.mode << "\nChoice: ";
             std::string m; std::getline(std::cin,m); m = trim(m);
             if (!m.empty()) { if (m=="1") cfg.mode="video"; else if (m=="2") cfg.mode="audio"; }
             std::cout << "Quality options:\n 1) best\n 2) 720\n 3) 1080\n 4) 1440\n 5) 2160\n 6) custom\nCurrent: " << cfg.quality << "\nChoice: ";
@@ -522,12 +563,18 @@ int main() {
             std::cout << "[OK] Settings saved\n";
             continue;
         }
+
+        // OPTION 5 - ensure tools, but clear screen before showing result
         if (choice == "5") {
+            clear_screen();
+            print_banner(true);
             std::cout << "[*] Ensuring yt-dlp... "; bool y = ti.ensure_yt_dlp(); std::cout << (y?"OK":"FAILED") << "\n";
-            std::cout << "[*] Ensuring ffmpeg... "; bool f = ti.ensure_ffmpeg(); std::cout << (f?"OK":"(not installed)") << "\n";
-            if (!f) std::cout << "[WARN] ffmpeg not available: conversions requiring ffmpeg may fail\n";
+            std::cout << "[*] Ensuring ffmpeg... "; bool ff = ti.ensure_ffmpeg(); std::cout << (ff?"OK":"(not installed)") << "\n";
+            if (!ff) std::cout << "[WARN] ffmpeg not available: conversions requiring ffmpeg may fail\n";
+            std::cout << "\nPress Enter to return to menu..."; std::string _tmp2; std::getline(std::cin, _tmp2);
             continue;
         }
+
         if (choice == "6") {
             auto names = list_names();
             if (names.empty()) { std::cout << "[!] No lists available.\n"; continue; }
